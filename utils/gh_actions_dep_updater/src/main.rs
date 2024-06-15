@@ -1,5 +1,6 @@
 use std::fs::{self};
 use regex::Regex;
+use std::error::Error;
 
 fn main() {
     println!("Running the GH Actions dependency updater script...");
@@ -7,7 +8,7 @@ fn main() {
     let filepath = "./.github/workflows/sample_workflow.yml";
     let yaml = read_workflow_file(filepath);
 
-    extract_dependencies(yaml.as_str());
+    let _extract_dependencies = extract_dependencies(yaml.as_str());
 }
 
 fn read_workflow_file(filepath: &str) -> String {
@@ -19,10 +20,11 @@ fn read_workflow_file(filepath: &str) -> String {
 
 }
 
-fn extract_dependencies(yaml: &str) {
+fn extract_dependencies(yaml: &str) -> Result<(), Box<dyn Error>> {
 
     let mut dependencies: Vec<&str> = vec![];
     let mut urls: Vec<String> = vec![];
+    let mut latest_versions: Vec<String> = vec![]; // same size as dependencies; associated
 
     // Find the dependencies in the yml content (i.e strings like actions/checkout@v1, mathieudutour/github-tag-action@v1, docker/login-action@v1)
     let dependency_pattern = Regex::new(r"[a-zA-Z0-9-]+/[a-zA-Z0-9-]+(/[a-zA-Z0-9-]+)?@v[0-9]+(\.[0-9]+){0,2}").unwrap();
@@ -31,11 +33,12 @@ fn extract_dependencies(yaml: &str) {
     }
 
     // For each dependency, generate the URL that points to their GitHub source repository
-    dependencies.into_iter().for_each(|current_dependency: &str| {
+    let deps_iter = dependencies.iter();
+    for current_dependency in deps_iter {
 
         // Skip empty statically allocated elements
         if current_dependency.len() == 0 {
-            return;
+            continue;
         }
 
         // Process dependency
@@ -45,13 +48,57 @@ fn extract_dependencies(yaml: &str) {
         let action = collection[1];
         let sanitised_action = action.split("@").next().unwrap();
 
-        let action_src_url = format!("https://github.com/{}/{}", author, sanitised_action);
+        let action_src_url = format!("https://github.com/{}/{}/releases", author, sanitised_action);
         urls.push(action_src_url.to_owned());
-    });
+    }
 
     // For each repository by URL, retrieve the latest published release and version 
-    urls.into_iter().for_each(|current_dependency_url: String| {
-        println!("{current_dependency_url}");
-    });
+    let urls_iter = urls.iter();
+    for url in urls_iter {
+
+        // println!("{url}");
+
+        let github_http_result = reqwest::blocking::get(url)?.text()?;
+
+        let release_version_pattern = Regex::new(r#"<a href="[^"]+/([^/"]+)"#).unwrap();
+        for cap in release_version_pattern.captures_iter(github_http_result.as_str()) {
+            let latest_version = cap.get(1).unwrap().as_str();
+            latest_versions.push(latest_version.to_string());
+            // only consider the first result, which is the latest version
+            break;
+        }
+    }
+
+    let mut index = 0;
+    let deps_iter = dependencies.iter();
+    for current_dependency in deps_iter {
+        
+        // Skip empty statically allocated elements
+        if current_dependency.len() == 0 {
+            continue;
+        }
+
+        // Process dependency
+        let tokens = current_dependency.split("/");
+        let collection: Vec<&str> = tokens.collect();
+        let author = collection[0];
+        let action = collection[1];
+        let mut action_tokens = action.split("@");
+        let action_name = action_tokens.next().unwrap();
+        let action_version = action_tokens.next().unwrap();
+
+        let current_uses = format!("{author}/{action_name}@{action_version}");
+        
+        let latest_dependency = latest_versions.get(index).unwrap();
+
+        let latest_uses = format!("{author}/{action_name}@{latest_dependency}");
+
+        println!("Installed: {current_uses}");
+        println!("Available: {latest_uses}");
+
+        index += 1;
+    }
+
+    Ok(())
 
 }
