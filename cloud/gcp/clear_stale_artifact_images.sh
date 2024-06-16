@@ -68,7 +68,7 @@ while read line; do
 done <<< "$artifact_registry_result_lines"
 
 # For every artifact, find all its other siblings
-# and delete them if they are old and if they amount to more than the image limit per artifact (i.e count_tagged_images_for_service >= 3)
+# and delete them if they are old and if they amount to more than the image limit per artifact (i.e count_tagged_images_for_service >= image_limit_per_service)
 current_artifact_image_count=0
 current_image_name=""
 deleted_count=0
@@ -136,7 +136,7 @@ done
 # Announce workflow status at script completion time
 echo "Submitted a total of $deleted_count redundant Docker images for deletion."
 if (( dry_run == 0 )); then
-    echo "Check the operation status in Artifact Registry (https://console.cloud.google.com/artifacts?cloudshell=true&project=aztebot-403621)."
+    echo "Check the operation status in Artifact Registry on Google Cloud."
 else
     echo "Dry-run complete. No resources were deleted in GCP."
 fi
