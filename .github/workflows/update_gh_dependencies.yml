@@ -28,14 +28,22 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup-init.sh
           sh rustup-init.sh -y --default-toolchain none
+
+      - name: Install updater tool
+        run: |
+          git clone https://github.com/RazvanBerbece/shared-workflows.git
       
       - name: Update workflow files
         run: |
           : # Use the gh_actions_dep_updater Rust tool to update *all* the .yml files
-          cd utils/gh_actions_dep_updater
-          for workflow_filename in ./.github/workflows/*; do
+          cd shared-workflows/utils/gh_actions_dep_updater
+          for workflow_filename in ../../.github/workflows/*; do
             cargo run -- w "$workflow_filename"
           done
+
+      - name: Cleanup resources
+        run: |
+          rm -r shared-workflows
 
       - name: Create Pull Request
         id: cpr
