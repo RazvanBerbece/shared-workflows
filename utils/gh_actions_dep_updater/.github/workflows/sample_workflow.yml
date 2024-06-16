@@ -39,9 +39,9 @@ jobs:
       id-token: 'write'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v2
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v2
         with:
           repository: RazvanBerbece/Aztebot-Infrastructure
           path: Infrastructure

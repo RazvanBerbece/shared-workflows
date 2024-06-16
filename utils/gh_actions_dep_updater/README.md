@@ -12,9 +12,11 @@ Also, the tool is limited when it comes to understanding context in the `.yml` f
 # Prerequisites
 1. Rust
 2. Cargo
+3. A target `.yml` Actions workflow file
 
 # Usage
 
 The following commands have to be executed from the `gh_actions_dep_updater` folder.
 
-1. `cargo run`
+1. `cargo run -- c "./.github/workflows/sample_workflow.yml"` (to output updated file contents to console)
+2. `cargo run -- w "./.github/workflows/sample_workflow.yml"` (to output updated file contents to workflow file)
