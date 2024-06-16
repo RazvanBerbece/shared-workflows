@@ -4,7 +4,9 @@ and output the file with the references of the dependencies updated to their lat
 
 Package provides a sample `.github` folder with a sample workflow which can be used to test the script.
 
-Note: This tool is relying on string operations to discover mismatches between the current version and the versions on GitHub. 
+### Notes 
+This tool is relying on string operations to discover mismatches between the current version and the versions on GitHub. 
+
 Also, it seems that some GitHub Actions on the marketplace are referenced in workflows with a singular number for the version `action@v1`,
 whereas their release versions in GitHub might look different (e.g. GH Release `v2.4.5` vs Dependency Reference `@v2`)
 
