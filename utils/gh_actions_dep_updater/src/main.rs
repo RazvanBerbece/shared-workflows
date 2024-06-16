@@ -69,7 +69,7 @@ fn generate_updated_workflow_file(yaml: &String) -> Result<String, Box<dyn Error
     let urls_iter = urls.iter();
     for url in urls_iter {
 
-        println!("Checking {url} for new releases...");
+        println!("Checking {url} for new versions of the dependency...");
 
         let github_http_result = reqwest::blocking::get(url)?.text()?;
 
