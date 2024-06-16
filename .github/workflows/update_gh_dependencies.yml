@@ -32,14 +32,13 @@ jobs:
       - name: Install updater tool
         run: |
           git clone https://github.com/RazvanBerbece/shared-workflows.git
-          ls
+          ls .github/workflows
       
       - name: Update workflow files
         run: |
           : # Use the gh_actions_dep_updater Rust tool to update *all* the .yml files
-          ls
           cd shared-workflows/utils/gh_actions_dep_updater
-          ls
+          
           for workflow_filename in ../../.github/workflows/*; do
             cargo run -- w "$workflow_filename"
           done
