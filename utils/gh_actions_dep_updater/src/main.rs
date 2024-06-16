@@ -1,30 +1,45 @@
 use std::fs::{self};
 use regex::Regex;
 use std::error::Error;
+use clap::Parser;
+
+//
+// USAGE: cargo run -- c "./.github/workflows/sample_workflow.yml" (to output updated file contents to console)
+//        cargo run -- w "./.github/workflows/sample_workflow.yml" (to output updated file contents to workflow file)
+//
+
+#[derive(Parser)]
+struct Cli {
+    mode: String, // w = re-write file, c = return string content
+    workflow_filepath: String,
+}
 
 fn main() {
 
-    // Inputs
-    let mode = 2; // 1 = re-write file, 2 = return string content
-    let workflow_filepath = "./.github/workflows/sample_workflow.yml";
+    // Parse input args (i.e mode and target files)
+    let args = Cli::parse();
 
     println!("Running the GH Actions dependency updater script...");
 
-    // Read the input workflow YAML
-    let yaml = read_workflow_file(workflow_filepath);
+    // Read the workflow YAML source
+    let yaml = read_workflow_file(args.workflow_filepath.as_str());
 
     // Run the << magic >>
     let updated_file_content = generate_updated_workflow_file(&yaml).unwrap();
 
     // Write to output based on given strategy
-    if mode == 1 {
+    if args.mode == "w" {
         // Re-write the input file
-        fs::write(workflow_filepath, updated_file_content).expect("Unable to write file");
-        println!("Wrote the version updates to {workflow_filepath}.");
+        let updated_filepath = args.workflow_filepath.as_str();
+        fs::write(updated_filepath, updated_file_content).expect("Unable to write file");
+        println!("Wrote the version updates to {}.", updated_filepath);
     }
-    else if mode == 2 {
+    else if args.mode == "c" {
         // Return the output to the console, allowing it to be piped
         println!("{updated_file_content}");
+    }
+    else {
+        println!("Mode {} not supported.", args.mode);
     }
 }
 
