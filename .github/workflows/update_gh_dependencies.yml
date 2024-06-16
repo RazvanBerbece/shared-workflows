@@ -23,11 +23,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        run: |
+          curl https://sh.rustup.rs -sSf | sh
       
       - name: Update workflow files
         run: |
           : # Use the gh_actions_dep_updater Rust tool to update *all* the .yml files
-          for workflow_filename in "$directory"/*; do
+          for workflow_filename in ./.github/workflows/*; do
             cargo run -- w "$workflow_filename"
           done
 
