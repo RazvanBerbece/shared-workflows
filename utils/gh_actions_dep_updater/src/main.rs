@@ -8,7 +8,7 @@ fn main() {
     let filepath = "./.github/workflows/sample_workflow.yml";
     let yaml = read_workflow_file(filepath);
 
-    let _extract_dependencies = extract_dependencies(yaml.as_str());
+    let updated_file = generated_updated_file(yaml).unwrap();
 }
 
 fn read_workflow_file(filepath: &str) -> String {
@@ -20,15 +20,17 @@ fn read_workflow_file(filepath: &str) -> String {
 
 }
 
-fn extract_dependencies(yaml: &str) -> Result<(), Box<dyn Error>> {
+fn generated_updated_file(yaml: String) -> Result<String, Box<dyn Error>> {
 
     let mut dependencies: Vec<&str> = vec![];
     let mut urls: Vec<String> = vec![];
     let mut latest_versions: Vec<String> = vec![]; // same size as dependencies; associated
 
+    let mut output_yaml = yaml;
+
     // Find the dependencies in the yml content (i.e strings like actions/checkout@v1, mathieudutour/github-tag-action@v1, docker/login-action@v1)
     let dependency_pattern = Regex::new(r"[a-zA-Z0-9-]+/[a-zA-Z0-9-]+(/[a-zA-Z0-9-]+)?@v[0-9]+(\.[0-9]+){0,2}").unwrap();
-    for cap in dependency_pattern.captures_iter(yaml) {
+    for cap in dependency_pattern.captures_iter(yaml.as_str()) {
         dependencies.push(cap.get(0).unwrap().as_str())
     }
 
@@ -81,24 +83,81 @@ fn extract_dependencies(yaml: &str) -> Result<(), Box<dyn Error>> {
         // Process dependency
         let tokens = current_dependency.split("/");
         let collection: Vec<&str> = tokens.collect();
-        let author = collection[0];
         let action = collection[1];
         let mut action_tokens = action.split("@");
         let action_name = action_tokens.next().unwrap();
         let action_version = action_tokens.next().unwrap();
-
-        let current_uses = format!("{author}/{action_name}@{action_version}");
         
-        let latest_dependency = latest_versions.get(index).unwrap();
+        let latest_version_for_dependency = latest_versions.get(index).unwrap();
 
-        let latest_uses = format!("{author}/{action_name}@{latest_dependency}");
+        let current_version_depth = get_version_format(action_version);
 
-        println!("Installed: {current_uses}");
-        println!("Available: {latest_uses}");
+        let current = get_version_at_depth(action_version, current_version_depth);
+        let latest = get_version_at_depth(latest_version_for_dependency, current_version_depth);
+        if current != latest {
+            let current_ocurrence = format!("{action_name}@{action_version}");
+            let updated_ocurrence = format!("{action_name}@v{latest}");
+
+            println!("Update discovered: {current_ocurrence} -> {updated_ocurrence}");
+
+            output_yaml = output_yaml.replacen(current_ocurrence.as_str(), updated_ocurrence.as_str(), 256);
+        }
 
         index += 1;
     }
 
-    Ok(())
+    return Ok(output_yaml.to_owned());
+
+}
+
+fn get_version_format(version: &str) -> i8 {
+
+    let mut depth = 0;
+
+    for char in version.chars() {
+        if char == '.' {
+            depth += 1;
+        }
+    }
+
+    return depth;
+
+}
+
+fn get_version_at_depth(version: &str, depth: i8) -> String {
+
+    let mut output = "".to_owned();
+
+    let mut current_depth = 0;
+    let mut idx = 0;
+    for char in version.chars() {
+
+        if char == 'v' {
+            continue;
+        }
+
+        if current_depth <= depth {
+            output.push(char);
+        }
+
+        if char == '.' {
+            current_depth += 1;
+        }
+
+        if current_depth > depth {
+            if char == '.' {
+                output.remove(idx);
+            }
+            break;
+        }
+
+        idx += 1;
+
+    }
+
+    // Trim last dot for cases where the target depth is before one
+
+
+    return output.to_string();
 
 }
