@@ -44,6 +44,7 @@ jobs:
       - name: Cleanup resources
         run: |
           rm -r shared-workflows
+          rm rustup-init.sh
 
       - name: Create Pull Request
         id: cpr
