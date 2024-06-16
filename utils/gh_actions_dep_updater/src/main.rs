@@ -17,6 +17,8 @@ fn main() {
 
     // Write to output
     fs::write(workflow_filepath, updated_file_content).expect("Unable to write file");
+
+    println!("Wrote the version updates to {workflow_filepath}.")
 }
 
 fn read_workflow_file(filepath: &str) -> String {
