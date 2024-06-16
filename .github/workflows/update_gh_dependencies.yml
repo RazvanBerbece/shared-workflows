@@ -4,7 +4,7 @@
 # It goes through the available workflow .yml files in the caller repository at './github/workflows/' 
 # and raises a PR with updated version references for the external dependencies that the workflows use.
 #
-# It requires a GitHub PAT token inherited from the caller in order to raise a PR.
+# It requires a GitHub PAT token (as GH_TOKEN) inherited from the caller in order to raise a PR.
 #
 
 name: Update GitHub Actions Dependencies
@@ -12,7 +12,7 @@ name: Update GitHub Actions Dependencies
 on:
   workflow_call:
     secrets:
-      PAT:
+      GH_TOKEN:
         required: true
 
 jobs:
@@ -35,7 +35,7 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
-            token: ${{ secrets.PAT }}
+            token: ${{ secrets.GH_TOKEN }}
             commit-message: Updates Actions dependencies
             committer: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
             author: ${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>
