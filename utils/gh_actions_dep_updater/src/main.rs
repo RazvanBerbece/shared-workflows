@@ -4,8 +4,8 @@ use std::error::Error;
 use clap::Parser;
 
 //
-// USAGE: cargo run -- c "./.github/workflows/sample_workflow.yml" (to output updated file contents to console)
-//        cargo run -- w "./.github/workflows/sample_workflow.yml" (to output updated file contents to workflow file)
+// USAGE: cargo run -r -- c "./.github/workflows/sample_workflow.yml" (to output updated file contents to console)
+//        cargo run -r -- w "./.github/workflows/sample_workflow.yml" (to output updated file contents to workflow file)
 //
 
 #[derive(Parser)]
@@ -19,7 +19,7 @@ fn main() {
     // Parse input args (i.e mode and target files)
     let args = Cli::parse();
 
-    println!("Running the GH Actions dependency updater script...");
+    println!("\nRunning the GH Actions dependency updater script for {}", args.workflow_filepath.as_str());
 
     // Read the workflow YAML source
     let yaml = read_workflow_file(args.workflow_filepath.as_str());
@@ -28,18 +28,23 @@ fn main() {
     let updated_file_content = generate_updated_workflow_file(&yaml).unwrap();
 
     // Write to output based on given strategy
-    if args.mode == "w" {
-        // Re-write the input file
-        let updated_filepath = args.workflow_filepath.as_str();
-        fs::write(updated_filepath, updated_file_content).expect("Unable to write file");
-        println!("Wrote the version updates to {}.", updated_filepath);
-    }
-    else if args.mode == "c" {
-        // Return the output to the console, allowing it to be piped
-        println!("{updated_file_content}");
+    if updated_file_content != yaml {
+        if args.mode == "w" {
+            // Re-write the input file
+            let updated_filepath = args.workflow_filepath.as_str();
+            fs::write(updated_filepath, updated_file_content).expect("Unable to write file");
+            println!("Wrote the version updates to {}.", updated_filepath);
+        }
+        else if args.mode == "c" {
+            // Return the output to the console, allowing it to be piped
+            println!("{updated_file_content}");
+        }
+        else {
+            println!("Mode {} not supported.", args.mode);
+        }
     }
     else {
-        println!("Mode {} not supported.", args.mode);
+        println!("All dependencies are up to date.");
     }
 }
 
