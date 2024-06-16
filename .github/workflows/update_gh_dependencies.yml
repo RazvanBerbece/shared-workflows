@@ -32,6 +32,7 @@ jobs:
       - name: Update workflow files
         run: |
           : # Use the gh_actions_dep_updater Rust tool to update *all* the .yml files
+          cd utils/gh_actions_dep_updater
           for workflow_filename in ./.github/workflows/*; do
             cargo run -- w "$workflow_filename"
           done
