@@ -1,23 +1,10 @@
-name: Sample Workflow With an External Dependency
+name: Sample Workflow With External Dependencies
 
 on:
   push:
-    paths-ignore:
-      - '.github/**'
-      - 'docs/**'
-      - 'README.md'
-      - '.gitignore'
-      - '.gitmodules'
-      - 'Makefile'
     branches: [ 'main' ]
 
   workflow_dispatch:
-
-env:
-  PROJECT_ID: ${{ secrets.GCE_PROJECT }}
-  DOCKER_ARTIFACT_REPOSITORY: ${{ secrets.GCE_PROJECT_DOCKER_ARTIFACT_REGISTRY }}
-  CLUSTER_NAME: ${{ secrets.GKE_CLUSTER_NAME }}
-  AZTEBOT_CONFIG_ENCODED: ${{ secrets.ENV_ENCODED_STRING }}
 
 jobs:
 
@@ -58,6 +45,7 @@ jobs:
         run: |
           : # Environment variables for AzteBot
           echo ${{ env.AZTEBOT_CONFIG_ENCODED }} | base64 --decode > .env
+          
       - name: Generate SHA output
         id: vars
         run: echo "GITHUB_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT

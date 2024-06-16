@@ -18,5 +18,5 @@ Also, the tool is limited when it comes to understanding context in the `.yml` f
 
 The following commands have to be executed from the `gh_actions_dep_updater` folder.
 
-1. `cargo run -- c "./.github/workflows/sample_workflow.yml"` (to output updated file contents to the console)
-2. `cargo run -- w "./.github/workflows/sample_workflow.yml"` (to output updated file contents to the input workflow file)
+1. `cargo run -- c "./sample_workflow.yml"` (to output updated file contents to the console)
+2. `cargo run -- w "./sample_workflow.yml"` (to output updated file contents to the input workflow file)
