@@ -5,6 +5,7 @@ use std::error::Error;
 fn main() {
 
     // Inputs
+    let mode = 2; // 1 = re-write file, 2 = return string content
     let workflow_filepath = "./.github/workflows/sample_workflow.yml";
 
     println!("Running the GH Actions dependency updater script...");
@@ -15,10 +16,16 @@ fn main() {
     // Run the << magic >>
     let updated_file_content = generate_updated_workflow_file(&yaml).unwrap();
 
-    // Write to output
-    fs::write(workflow_filepath, updated_file_content).expect("Unable to write file");
-
-    println!("Wrote the version updates to {workflow_filepath}.")
+    // Write to output based on given strategy
+    if mode == 1 {
+        // Re-write the input file
+        fs::write(workflow_filepath, updated_file_content).expect("Unable to write file");
+        println!("Wrote the version updates to {workflow_filepath}.");
+    }
+    else if mode == 2 {
+        // Return the output to the console, allowing it to be piped
+        println!("{updated_file_content}");
+    }
 }
 
 fn read_workflow_file(filepath: &str) -> String {
