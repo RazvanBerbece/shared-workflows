@@ -17,7 +17,7 @@ on:
 
 jobs:
 
-  raise-pr:
+  generate-pr-with-changes:
 
     runs-on: ubuntu-latest
 
