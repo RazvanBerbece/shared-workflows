@@ -39,7 +39,9 @@ fn generate_updated_workflow_file(yaml: &String) -> Result<String, Box<dyn Error
     // Find the dependencies in the yml content (i.e strings like actions/checkout@v1, mathieudutour/github-tag-action@v1, docker/login-action@v1)
     let dependency_pattern = Regex::new(r"[a-zA-Z0-9-]+/[a-zA-Z0-9-]+(/[a-zA-Z0-9-]+)?@v[0-9]+(\.[0-9]+){0,2}").unwrap();
     for cap in dependency_pattern.captures_iter(yaml.as_str()) {
-        dependencies.push(cap.get(0).unwrap().as_str())
+        if !dependencies.contains(&cap.get(0).unwrap().as_str()) {
+            dependencies.push(cap.get(0).unwrap().as_str());
+        }
     }
 
     // For each dependency, generate the URL that points to their GitHub source repository
@@ -59,6 +61,7 @@ fn generate_updated_workflow_file(yaml: &String) -> Result<String, Box<dyn Error
         let sanitised_action = action.split("@").next().unwrap();
 
         let action_src_url = format!("https://github.com/{}/{}/releases", author, sanitised_action);
+
         urls.push(action_src_url.to_owned());
     }
 
