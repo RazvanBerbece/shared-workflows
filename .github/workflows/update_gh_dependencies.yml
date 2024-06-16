@@ -26,7 +26,8 @@ jobs:
 
       - name: Install Rust toolchain
         run: |
-          curl https://sh.rustup.rs -sSf -y | sh
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup-init.sh
+          sh rustup-init.sh -y --default-toolchain none
       
       - name: Update workflow files
         run: |
