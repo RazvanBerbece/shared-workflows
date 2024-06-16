@@ -3,12 +3,20 @@ use regex::Regex;
 use std::error::Error;
 
 fn main() {
+
+    // Inputs
+    let workflow_filepath = "./.github/workflows/sample_workflow.yml";
+
     println!("Running the GH Actions dependency updater script...");
 
-    let filepath = "./.github/workflows/sample_workflow.yml";
-    let yaml = read_workflow_file(filepath);
+    // Read the input workflow YAML
+    let yaml = read_workflow_file(workflow_filepath);
 
-    let updated_file = generated_updated_file(yaml).unwrap();
+    // Run the << magic >>
+    let updated_file_content = generate_updated_workflow_file(&yaml).unwrap();
+
+    // Write to output
+    fs::write(workflow_filepath, updated_file_content).expect("Unable to write file");
 }
 
 fn read_workflow_file(filepath: &str) -> String {
@@ -20,13 +28,13 @@ fn read_workflow_file(filepath: &str) -> String {
 
 }
 
-fn generated_updated_file(yaml: String) -> Result<String, Box<dyn Error>> {
+fn generate_updated_workflow_file(yaml: &String) -> Result<String, Box<dyn Error>> {
 
     let mut dependencies: Vec<&str> = vec![];
     let mut urls: Vec<String> = vec![];
     let mut latest_versions: Vec<String> = vec![]; // same size as dependencies; associated
 
-    let mut output_yaml = yaml;
+    let mut output_yaml = yaml.clone();
 
     // Find the dependencies in the yml content (i.e strings like actions/checkout@v1, mathieudutour/github-tag-action@v1, docker/login-action@v1)
     let dependency_pattern = Regex::new(r"[a-zA-Z0-9-]+/[a-zA-Z0-9-]+(/[a-zA-Z0-9-]+)?@v[0-9]+(\.[0-9]+){0,2}").unwrap();
@@ -58,7 +66,7 @@ fn generated_updated_file(yaml: String) -> Result<String, Box<dyn Error>> {
     let urls_iter = urls.iter();
     for url in urls_iter {
 
-        // println!("{url}");
+        println!("Checking {url} for new releases...");
 
         let github_http_result = reqwest::blocking::get(url)?.text()?;
 
