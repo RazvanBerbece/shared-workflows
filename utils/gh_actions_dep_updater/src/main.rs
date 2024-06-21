@@ -37,7 +37,7 @@ fn main() {
         );
     }
     else {
-        println!("All dependencies are up to date.");
+        println!("All dependencies in {} are up to date.", args.workflow_filepath.as_str());
     }
 }
 
