@@ -27,21 +27,14 @@ fn main() {
     // Run the << magic >>
     let updated_file_content = generate_updated_workflow_file(&yaml).unwrap();
 
-    // Write to output based on given strategy
+    // If changes in versions are detected
     if updated_file_content != yaml {
-        if args.mode == "w" {
-            // Re-write the input file
-            let updated_filepath = args.workflow_filepath.as_str();
-            fs::write(updated_filepath, updated_file_content).expect("Unable to write file");
-            println!("Wrote the version updates to {}.", updated_filepath);
-        }
-        else if args.mode == "c" {
-            // Return the output to the console, allowing it to be piped
-            println!("{updated_file_content}");
-        }
-        else {
-            println!("Mode {} not supported.", args.mode);
-        }
+        // Output based on given strategy
+        output_updated_wofklow(
+            updated_file_content.as_str(), 
+            args.mode.as_str(), 
+            args.workflow_filepath.as_str()
+        );
     }
     else {
         println!("All dependencies are up to date.");
@@ -199,5 +192,23 @@ fn get_version_at_depth(version: &str, depth: i8) -> String {
 
 
     return output.to_string();
+
+}
+
+fn output_updated_wofklow(yaml: &str, mode: &str, workflow_filepath: &str) {
+
+    if mode == "w" {
+        // Re-write the input file
+        let updated_filepath = workflow_filepath;
+        fs::write(updated_filepath, yaml).expect("Unable to write file");
+        println!("Wrote the version updates to {}.", updated_filepath);
+    }
+    else if mode == "c" {
+        // Return the output to the console, allowing it to be piped
+        println!("{yaml}");
+    }
+    else {
+        println!("Mode {} not supported.", mode);
+    }
 
 }
