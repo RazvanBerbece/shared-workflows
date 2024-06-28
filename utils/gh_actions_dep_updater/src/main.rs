@@ -59,7 +59,7 @@ fn generate_updated_workflow_file(yaml: &String) -> Result<String, Box<dyn Error
     let mut output_yaml = yaml.clone();
 
     // Find the dependencies in the yml content (i.e strings like actions/checkout@v1, mathieudutour/github-tag-action@v1, docker/login-action@v1)
-    let dependency_pattern = Regex::new(r"[a-zA-Z0-9-]+/[a-zA-Z0-9-]+(/[a-zA-Z0-9-]+)?@v[0-9]+(\.[0-9]+){0,2}").unwrap();
+    let dependency_pattern = Regex::new(r"[a-zA-Z0-9-]+/[a-zA-Z0-9-]+(/[a-zA-Z0-9-]+)?@v?[0-9]+(\.[0-9]+){0,2}").unwrap();
     for cap in dependency_pattern.captures_iter(yaml.as_str()) {
         if !dependencies.contains(&cap.get(0).unwrap().as_str()) {
             dependencies.push(cap.get(0).unwrap().as_str());
