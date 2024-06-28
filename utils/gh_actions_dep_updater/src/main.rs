@@ -1,4 +1,4 @@
-use std::fs::{self};
+use std::fs;
 use regex::Regex;
 use std::error::Error;
 use clap::Parser;
@@ -53,7 +53,7 @@ fn read_workflow_file(filepath: &str) -> String {
 fn generate_updated_workflow_file(yaml: &String) -> Result<String, Box<dyn Error>> {
 
     let mut dependencies: Vec<&str> = vec![];
-    let mut urls: Vec<(String, String)> = vec![]; // (marketplace_url, fallback_repo_url)
+    let mut urls: Vec<String> = vec![]; // list of Marketplace URLs
     let mut latest_versions: Vec<String> = vec![]; // same size as dependencies; associated
 
     let mut output_yaml = yaml.clone();
@@ -75,61 +75,45 @@ fn generate_updated_workflow_file(yaml: &String) -> Result<String, Box<dyn Error
             continue;
         }
 
-        // Process dependency
         let tokens = current_dependency.split("/");
         let collection: Vec<&str> = tokens.collect();
         let author = collection[0];
         let action = collection[1];
         let sanitised_action = action.split("@").next().unwrap();
 
-        let repo_action_src_url = format!("https://github.com/{}/{}/releases", author, sanitised_action);
-        let marketplace_action_src_url = format!("https://github.com/marketplace/actions/{}", sanitised_action);
-
-        urls.push((marketplace_action_src_url, repo_action_src_url));
+        // Find the GitHub Marketplace URL from the source repository page 
+        // (as all Actions repositories contain a hyperlink to the Marketplace homepage for the workflow)
+        let source_repo_response = reqwest::blocking::get(format!("https://github.com/{}/{}", author, sanitised_action))?.text()?;
+        let marketplace_url_pattern = Regex::new(r#"<a [^>]*href="/([^"]+)"[^>]*>.*?<span [^>]*>.*?View on Marketplace.*?</span>.*?</a>"#).unwrap();
+        for cap in marketplace_url_pattern.captures_iter(source_repo_response.as_str()) {
+            let marketplace_url = format!("https://github.com/{}", cap.get(1).unwrap().as_str());
+            urls.push(marketplace_url);
+            break;
+        }
     }
 
     // For each repository by URL, retrieve the latest published release and version 
     let urls_iter = urls.iter();
     for url in urls_iter {
 
-        let marketplace_url = &url.0;
-        let repo_url = &url.1;
+        let target_url = url;
 
-        println!("Checking ({}, {}) for new versions of the dependency...", marketplace_url, repo_url);
+        println!("Checking {} for new versions of the dependency...", target_url);
 
-        let mut used_default_strategy = true;
-
-        // Strategy 1 - Use the GitHub Actions Marketplace URL to get the latest version
-        let github_http_result = reqwest::blocking::get(marketplace_url);
-        let github_http_result_text = match reqwest::blocking::get(marketplace_url)?.error_for_status() {
-            Ok(_res) => github_http_result?.text()?,
-            Err(_err) => {
-                // Strategy 2 - Fallback to using the GitHub repository source URL of the Action to get the latest version
-                println!("Falling back to Strategy 2 for {}", repo_url);
-                used_default_strategy = false;
-                reqwest::blocking::get(repo_url)?.text()?
-            }
-        };
-
-        if used_default_strategy {
-            // Strategy 1 - Marketplace
-            let release_version_pattern = Regex::new(r#"<span class="[^"]*mx-2[^"]*">([^<]+)</span>"#).unwrap();
-            for cap in release_version_pattern.captures_iter(github_http_result_text.as_str()) {
-                let latest_version = cap.get(1).unwrap().as_str();
-                latest_versions.push(latest_version.to_string());
-                // only consider the first result, which is the latest version
-                break;
-            }
+        let github_http_result = reqwest::blocking::get(target_url).unwrap();
+        let status = github_http_result.status().as_u16();
+        let response_text = github_http_result.text()?;
+        if status == 404 {
+            println!("Status 404 for: {}. Skipping.", target_url);
+            continue;
         }
-        else {
-            // Strategy 2 - Repository
-            let release_version_pattern = Regex::new(r#"<a href="[^"]+/([^/"]+)"#).unwrap();
-            for cap in release_version_pattern.captures_iter(github_http_result_text.as_str()) {
-                let latest_version = cap.get(1).unwrap().as_str();
-                latest_versions.push(latest_version.to_string());
-                // only consider the first result, which is the latest version
-                break;
-            }
+
+        let release_version_pattern = Regex::new(r#"<span class="[^"]*mx-2[^"]*">([^<]+)</span>"#).unwrap();
+        for cap in release_version_pattern.captures_iter(response_text.as_str()) {
+            let latest_version = cap.get(1).unwrap().as_str();
+            latest_versions.push(latest_version.to_string());
+            // only consider the first result, which is the latest version
+            break;
         }
     }
 
@@ -142,27 +126,21 @@ fn generate_updated_workflow_file(yaml: &String) -> Result<String, Box<dyn Error
             continue;
         }
 
-        // Process dependency
         let tokens = current_dependency.split("/");
         let collection: Vec<&str> = tokens.collect();
         let author = collection[0];
         let action = collection[1];
         let mut action_tokens = action.split("@");
         let action_name = action_tokens.next().unwrap();
-        let action_version = action_tokens.next().unwrap();
+        let current_version = action_tokens.next().unwrap();
         
         let latest_version_for_dependency = latest_versions.get(index).unwrap();
 
-        let current_version_depth = get_version_depth(action_version);
-
-        let current = get_version_at_depth(action_version, current_version_depth);
-        let latest = get_version_at_depth(latest_version_for_dependency, current_version_depth);
-
-        if current != latest {
-            let current_ocurrence = format!("{action_name}@{action_version}");
+        if current_version != latest_version_for_dependency {
+            let current_ocurrence = format!("{action_name}@{current_version}");
             let updated_ocurrence = format!("{action_name}@{latest_version_for_dependency}");
 
-            println!("Update discovered for <{author}/{action_name}>: {current_ocurrence} -> {updated_ocurrence}");
+            println!("Update discovered for {author}/{action_name} : {current_ocurrence} -> {updated_ocurrence}");
 
             output_yaml = output_yaml.replacen(current_ocurrence.as_str(), updated_ocurrence.as_str(), 256);
         }
@@ -171,58 +149,6 @@ fn generate_updated_workflow_file(yaml: &String) -> Result<String, Box<dyn Error
     }
 
     return Ok(output_yaml.to_owned());
-
-}
-
-fn get_version_depth(version: &str) -> i8 {
-
-    let mut depth = 0;
-
-    for char in version.chars() {
-        if char == '.' {
-            depth += 1;
-        }
-    }
-
-    return depth;
-
-}
-
-fn get_version_at_depth(version: &str, depth: i8) -> String {
-
-    let mut output = "".to_owned();
-
-    let mut current_depth = 0;
-    let mut idx = 0;
-    for char in version.chars() {
-
-        if char == 'v' {
-            continue;
-        }
-
-        if current_depth <= depth {
-            output.push(char);
-        }
-
-        if char == '.' {
-            current_depth += 1;
-        }
-
-        if current_depth > depth {
-            if char == '.' {
-                output.remove(idx);
-            }
-            break;
-        }
-
-        idx += 1;
-
-    }
-
-    // Trim last dot for cases where the target depth is before one
-
-
-    return output.to_string();
 
 }
 
