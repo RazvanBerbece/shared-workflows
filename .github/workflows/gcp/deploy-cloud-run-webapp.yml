@@ -9,7 +9,7 @@
 # TODO: Requirements
 #
 
-name: Deploy Cloud Run Webapp
+name: Deploy Webapp to Google Cloud Run
 
 on:
     workflow_call:
