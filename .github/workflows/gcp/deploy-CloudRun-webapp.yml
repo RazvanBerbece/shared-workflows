@@ -1,0 +1,134 @@
+#
+# This workflow is ran when called by other workflows. 
+#
+# It creates and deploys a new Google Cloud Run container revision 
+# using the Dockerfile at the root of the caller repository.
+#
+# Additionally, it generates and pushes a new versioned release to the caller repository.
+#
+# TODO: Requirements
+#
+
+name: Deploy Cloud Run Webapp
+
+on:
+    workflow_call:
+      secrets:
+        devbot-token:
+          required: true
+        gcp-project-id:
+          required: true
+        gcp-docker-artifact-registry:
+          required: true
+        gcp-workload-identity-provider:
+          required: true
+        gcp-github-service-account:
+          required: true
+      inputs:
+        container-registry-domain:
+            description: 'The domain of the container registry to push and pull images from (e.g: docker.pkg.dev)'
+            required: true
+        webapp-service-name:
+            description: 'The name of the service to be created (identifies both the Artifact Registry image and the Cloud Run instance)'
+            required: true
+        artifact-registry-region:
+            description: 'The geographic region of the Google Artifact Registry where the container image will be pushed to & pulled from'
+            required: true
+        cloudrun-instance-region:
+            description: 'The geographic region of the Google Cloud Run instance where the revision will run in'
+            required: true
+        webapp-open-port:
+            description: 'The port on which the revision will listen for connections on'
+            required: false
+            default: 8080
+        webapp-environment-vars:
+            description: 'Comma-separated list of environment variables to set in the revision (e.g ENV="prod",LOGGING="on")'
+            required: false
+            default: "ENV="production""
+
+env:
+  SERVICE_NAME: ${{ inputs.webapp-service-name }}
+
+  AR_DOMAIN: ${{ inputs.container-registry-domain }}
+
+  AR_REGION: ${{ inputs.artifact-registry-region }}
+  CLOUDRUN_REGION: ${{ inputs.cloudrun-instance-region }}
+
+  WEBAPP_PORT: ${{ inputs.webapp-open-port }}
+  WEBAPP_ENVIRONMENT_VARS: ${{ inputs.webapp-environment-vars }}
+
+jobs:
+
+  continuous-deployment:
+    environment: production
+    runs-on: ubuntu-latest
+
+    permissions:
+        contents: 'read'
+        id-token: 'write'
+
+    steps:
+      - uses: actions/checkout@v4.1.7
+
+      - name: Generate next release number
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.devbot-token }}
+          dry_run: true
+
+      - name: Generate SHA output
+        id: vars
+        run: echo "GITHUB_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          token_format: 'access_token'
+          create_credentials_file: true
+          workload_identity_provider: ${{ secrets.gcp-workload-identity-provider }}
+          service_account: ${{ secrets.gcp-github-service-account }}
+          access_token_lifetime: '60s'
+
+      - uses: 'docker/login-action@v3'
+        name: 'Docker login'
+        with:
+          registry: '${{ env.AR_REGION }}-${{ env.AR_DOMAIN }}'
+          username: 'oauth2accesstoken'
+          password: '${{ steps.auth.outputs.access_token }}'
+
+      - name: Build, tag and push container
+        id: build-image
+        uses: docker/build-push-action@v3
+        with:
+          context: "."
+          push: true 
+          tags: |
+              ${{ env.AR_REGION }}-${{ env.AR_DOMAIN }}/${{ secrets.gcp-project-id }}/${{ secrets.gcp-docker-artifact-registry }}/${{ env.SERVICE_NAME }}:${{ steps.vars.outputs.GITHUB_SHA }}
+
+      - name: Deploy updated image to Google Cloud Run
+        id: 'deploy'
+        run: |
+            gcloud run deploy ${{ env.SERVICE_NAME }} \
+              --image ${{ env.AR_REGION }}-${{ env.AR_DOMAIN }}/${{ secrets.gcp-project-id }}/${{ secrets.gcp-docker-artifact-registry }}/${{ env.SERVICE_NAME }}:${{ steps.vars.outputs.GITHUB_SHA }} \
+              --region ${{ env.CLOUDRUN_REGION }} \
+              --port=${{ env.WEBAPP_PORT }} \
+              --min-instances=0 \
+              --max-instances=1 \
+              --cpu=1 \
+              --no-use-http2 \
+              --no-allow-unauthenticated \
+              --set-env-vars ${{ env.WEBAPP_ENVIRONMENT_VARS }}
+            
+      # - name: Ping homepage
+      #   run: 'curl "${{ steps.deploy.outputs.url }}"'
+
+      - name: Create a new GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.devbot-token }}
+          tag: ${{ steps.tag_version.outputs.new_tag }}
+          name: Release ${{ steps.tag_version.outputs.new_tag }}
+          body: ${{ steps.tag_version.outputs.changelog }}
+      
